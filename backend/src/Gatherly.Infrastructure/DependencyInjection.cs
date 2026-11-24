@@ -1,7 +1,9 @@
 using Gatherly.Application.Auth;
 using Gatherly.Application.Integrations;
+using Gatherly.Application.Notifications;
 using Gatherly.Domain.Entities;
 using Gatherly.Infrastructure.Integrations.Ticketmaster;
+using Gatherly.Infrastructure.Notifications;
 using Gatherly.Infrastructure.Persistence;
 using Gatherly.Infrastructure.Security;
 using Microsoft.AspNetCore.Identity;
@@ -31,6 +33,17 @@ public static class DependencyInjection
             .AddDefaultTokenProviders();
 
         services.AddScoped<ITokenService, JwtTokenService>();
+
+        services.AddOptions<EmailOptions>()
+            .Bind(configuration.GetSection(EmailOptions.SectionName));
+        services.AddScoped<IEmailSender, SmtpEmailSender>();
+        services.AddScoped<IWaitlistService, WaitlistService>();
+
+        services.AddOptions<ReminderOptions>()
+            .Bind(configuration.GetSection(ReminderOptions.SectionName));
+        services.AddScoped<EventReminderDispatcher>();
+        services.AddScoped<IRsvpNotifier, RsvpNotifier>();
+        services.AddHostedService<EventReminderService>();
 
         services.AddOptions<TicketmasterOptions>()
             .Bind(configuration.GetSection(TicketmasterOptions.SectionName));

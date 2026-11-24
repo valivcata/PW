@@ -15,6 +15,8 @@ const event: EventSummary = {
   price: 0,
   goingCount: 3,
   externalSource: 'Ticketmaster',
+  latitude: null,
+  longitude: null,
 };
 
 describe('EventCard', () => {

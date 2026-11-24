@@ -20,6 +20,8 @@ const ev = (
   price,
   goingCount: going,
   externalSource,
+  latitude: null,
+  longitude: null,
 });
 
 const items = [

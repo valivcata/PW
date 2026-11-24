@@ -199,6 +199,9 @@ namespace Gatherly.Infrastructure.Persistence.Migrations
                     b.Property<string>("UserId")
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("ReminderSentAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("RespondedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -230,6 +233,46 @@ namespace Gatherly.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("Favorites");
+                });
+
+            modelBuilder.Entity("Gatherly.Domain.Entities.Review", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Comment")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("EventId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("Reviews", t =>
+                        {
+                            t.HasCheckConstraint("CK_Reviews_Rating", "\"Rating\" BETWEEN 1 AND 5");
+                        });
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -412,6 +455,25 @@ namespace Gatherly.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Gatherly.Domain.Entities.Review", b =>
+                {
+                    b.HasOne("Gatherly.Domain.Entities.Event", "Event")
+                        .WithMany("Reviews")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Gatherly.Domain.Entities.ApplicationUser", "User")
+                        .WithMany("Reviews")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -469,6 +531,8 @@ namespace Gatherly.Infrastructure.Persistence.Migrations
 
                     b.Navigation("OrganizedEvents");
 
+                    b.Navigation("Reviews");
+
                     b.Navigation("Rsvps");
                 });
 
@@ -477,6 +541,8 @@ namespace Gatherly.Infrastructure.Persistence.Migrations
                     b.Navigation("Attendees");
 
                     b.Navigation("FavoritedBy");
+
+                    b.Navigation("Reviews");
                 });
 #pragma warning restore 612, 618
         }

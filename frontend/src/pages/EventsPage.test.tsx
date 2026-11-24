@@ -16,11 +16,15 @@ const events: EventSummary[] = Array.from({ length: 12 }, (_, i) => ({
   price: 10,
   goingCount: 0,
   externalSource: null,
+  latitude: null,
+  longitude: null,
 }));
 
 function mockEventsApi() {
-  vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
-    jsonResponse({ items: events, total: events.length, page: 1, pageSize: 12 }),
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) =>
+    String(input).includes('/recommended')
+      ? jsonResponse({ items: [], basedOn: [] })
+      : jsonResponse({ items: events, total: events.length, page: 1, pageSize: 12 }),
   );
 }
 

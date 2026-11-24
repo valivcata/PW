@@ -30,9 +30,15 @@ public static class DbSeeder
             await userManager.CreateAsync(organizer, "Gatherly123");
         }
 
-        if (await db.Events.AnyAsync())
-            return;
+        if (!await db.Events.AnyAsync())
+            await SeedStarterEventsAsync(db, organizer, logger);
 
+        // 40 more events, demo people, RSVPs and reviews; only adds what's missing.
+        await DemoDataSeeder.SeedAsync(db, userManager, organizer, logger);
+    }
+
+    private static async Task SeedStarterEventsAsync(ApplicationDbContext db, ApplicationUser organizer, ILogger logger)
+    {
         var now = DateTime.UtcNow.Date;
         var events = new List<Event>
         {

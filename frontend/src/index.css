@@ -27,6 +27,11 @@ body {
   filter: hue-rotate(95deg) saturate(0.85) brightness(1.15);
 }
 
+/* Category-coloured pins on the events map keep their real colours. */
+.leaflet-marker-icon.gatherly-pin {
+  filter: none;
+}
+
 .leaflet-control-attribution {
   background: rgba(27, 28, 41, 0.75) !important;
   color: #a6a4b6;

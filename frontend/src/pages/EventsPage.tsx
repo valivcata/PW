@@ -15,8 +15,13 @@ import {
   Stack,
   Switch,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
   Typography,
 } from '@mui/material';
+import ViewModuleIcon from '@mui/icons-material/ViewModule';
+import MapIcon from '@mui/icons-material/Map';
 import SearchIcon from '@mui/icons-material/Search';
 import TuneIcon from '@mui/icons-material/Tune';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
@@ -29,6 +34,8 @@ import { dateInputToIso } from '../lib/format';
 import { activeQuickRange, quickRange, QUICK_RANGES, type QuickRange } from '../lib/dateRanges';
 import { applyClientFilters, isSortKey, SORT_KEYS, type SortKey } from '../lib/eventFilters';
 import { EmptyState, EventGrid } from '../components/EventGrid';
+import { EventsMap } from '../components/EventsMap';
+import { ForYou } from '../components/ForYou';
 import { fourUpGridSize } from '../lib/grid';
 import { TIMISOARA } from '../lib/geo';
 import { useAuth } from '../auth/useAuth';
@@ -78,8 +85,11 @@ export function EventsPage() {
   // Signed-out visitors only ever see the first few events (see GuestGate).
   const page = isAuthenticated ? Math.max(1, Number(params.get('page') ?? 1)) : 1;
 
+  const mapView = params.get('view') === 'map';
+
   // Free-only and non-date sorting aren't supported by the API, so fetch a larger batch and do it here.
-  const clientMode = freeOnly || sort !== 'date';
+  // The map shows every matching event at once, so it needs the larger batch too.
+  const clientMode = freeOnly || sort !== 'date' || mapView;
 
   const [searchInput, setSearchInput] = useState(search);
   const [showFilters, setShowFilters] = useState(!!(near || freeOnly || sort !== 'date' || ((from || to) && !activeQuickRange(from, to))));
@@ -133,9 +143,11 @@ export function EventsPage() {
 
   const view = useMemo(() => {
     if (!data) return null;
-    if (!clientMode) return { items: data.items, total: data.total, pages: Math.max(1, Math.ceil(data.total / PAGE_SIZE)) };
+    if (!clientMode)
+      return { all: data.items, items: data.items, total: data.total, pages: Math.max(1, Math.ceil(data.total / PAGE_SIZE)) };
     const all = applyClientFilters(data.items, { freeOnly, sort });
     return {
+      all,
       items: all.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
       total: all.length,
       pages: Math.max(1, Math.ceil(all.length / PAGE_SIZE)),
@@ -269,6 +281,12 @@ export function EventsPage() {
       </Box>
       </Reveal>
 
+      {isAuthenticated && !hasFilters && (
+        <Reveal>
+          <ForYou />
+        </Reveal>
+      )}
+
       <Stack spacing={2.5} id="events" sx={{ scrollMarginTop: 96 }}>
         <Reveal>
         <Stack
@@ -291,15 +309,33 @@ export function EventsPage() {
                 {t('home.freeOnly')}
               </Box>
             </Box>
-            <Button
-              size="small"
-              startIcon={<TuneIcon />}
-              variant={showFilters ? 'contained' : 'outlined'}
-              onClick={() => setShowFilters((s) => !s)}
-              sx={{ alignSelf: { xs: 'flex-start', lg: 'flex-end' } }}
-            >
-              {t('home.filters')}
-            </Button>
+            <Stack direction="row" spacing={1} sx={{ alignSelf: { xs: 'flex-start', lg: 'flex-end' } }}>
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={mapView ? 'map' : 'grid'}
+                onChange={(_, v: 'grid' | 'map' | null) => v && update({ view: v === 'map' ? 'map' : null })}
+              >
+                <Tooltip title={t('home.view.grid')}>
+                  <ToggleButton value="grid" aria-label={t('home.view.grid')}>
+                    <ViewModuleIcon fontSize="small" />
+                  </ToggleButton>
+                </Tooltip>
+                <Tooltip title={t('home.view.map')}>
+                  <ToggleButton value="map" aria-label={t('home.view.map')}>
+                    <MapIcon fontSize="small" sx={{ mr: 0.5 }} /> {t('home.view.map')}
+                  </ToggleButton>
+                </Tooltip>
+              </ToggleButtonGroup>
+              <Button
+                size="small"
+                startIcon={<TuneIcon />}
+                variant={showFilters ? 'contained' : 'outlined'}
+                onClick={() => setShowFilters((s) => !s)}
+              >
+                {t('home.filters')}
+              </Button>
+            </Stack>
           </Stack>
         </Stack>
         </Reveal>
@@ -401,6 +437,11 @@ export function EventsPage() {
         </Typography>
       )}
 
+      {mapView && view && (
+        <EventsMap events={isAuthenticated ? view.all : view.all.slice(0, GUEST_EVENT_LIMIT)} />
+      )}
+
+      {!mapView && (
       <EventGrid
         events={isAuthenticated ? view?.items : view?.items.slice(0, GUEST_EVENT_LIMIT)}
         gridSize={isAuthenticated ? undefined : fourUpGridSize}
@@ -421,12 +462,13 @@ export function EventsPage() {
           />
         }
       />
+      )}
 
       {!isAuthenticated && view && view.total > GUEST_EVENT_LIMIT && (
         <GuestGate total={view.total} teaser={view.items.slice(GUEST_EVENT_LIMIT, GUEST_EVENT_LIMIT + 4)} />
       )}
 
-      {isAuthenticated && view && view.pages > 1 && (
+      {isAuthenticated && !mapView && view && view.pages > 1 && (
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
           <Pagination
             count={view.pages}

@@ -34,6 +34,15 @@ public class UpdateEventRequestValidator : AbstractValidator<UpdateEventRequest>
     }
 }
 
+public class ReviewRequestValidator : AbstractValidator<ReviewRequest>
+{
+    public ReviewRequestValidator()
+    {
+        RuleFor(x => x.Rating).InclusiveBetween(1, 5);
+        RuleFor(x => x.Comment).MaximumLength(2000);
+    }
+}
+
 public class RegisterRequestValidator : AbstractValidator<RegisterRequest>
 {
     public RegisterRequestValidator()

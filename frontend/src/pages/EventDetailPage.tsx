@@ -49,6 +49,8 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { AddToCalendar } from '../components/AddToCalendar';
 import { AuthButtons } from '../components/GuestGate';
 import { isFree } from '../lib/eventFilters';
+import { AttendeesCard } from '../components/AttendeesCard';
+import { ReviewsSection } from '../components/ReviewsSection';
 
 const roundGlass = {
   bgcolor: 'rgba(27,28,41,0.6)',
@@ -61,6 +63,7 @@ const rsvpStatusKey: Record<RsvpStatus, MessageKey> = {
   [RsvpStatus.Going]: 'event.rsvpStatus.going',
   [RsvpStatus.Interested]: 'event.rsvpStatus.interested',
   [RsvpStatus.NotGoing]: 'event.rsvpStatus.notGoing',
+  [RsvpStatus.Waitlisted]: 'event.rsvpStatus.waitlisted',
 };
 
 export function EventDetailPage() {
@@ -89,14 +92,20 @@ export function EventDetailPage() {
 
   const rsvp = useMutation({
     mutationFn: async (status: RsvpStatus | null) => {
-      if (status === null) await eventsApi.removeRsvp(id);
-      else await eventsApi.rsvp(id, status);
-      return status;
+      if (status === null) {
+        await eventsApi.removeRsvp(id);
+        return null;
+      }
+      // The server may answer Waitlisted instead of Going when the event is full.
+      return (await eventsApi.rsvp(id, status)) ?? { status, waitlistPosition: null };
     },
-    onSuccess: (status) => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['event', id] });
       invalidateLists();
-      notify(status === null ? t('event.rsvpRemoved') : t(rsvpStatusKey[status]));
+      if (result === null) notify(t('event.rsvpRemoved'));
+      else if (result.status === RsvpStatus.Waitlisted)
+        notify(t('event.waitlisted', { position: result.waitlistPosition ?? '?' }), 'info');
+      else notify(t(rsvpStatusKey[result.status]));
     },
     onError: (err) => notify(errorMessage(err, t), 'error'),
   });
@@ -180,7 +189,11 @@ export function EventDetailPage() {
   const price = formatPrice(event.price, locale, t('common.free'), isFree(event));
   const isOwner = !!user && user.id === event.organizerId;
   const isPast = new Date(event.endUtc).getTime() < now;
-  const isFull = event.capacity !== null && event.goingCount >= event.capacity && event.myRsvpStatus !== RsvpStatus.Going;
+  const isWaitlisted = event.myRsvpStatus === RsvpStatus.Waitlisted;
+  // Full for me: no free spot and I'm not already in. Asking for Going then puts me on the waitlist.
+  const isFull =
+    event.capacity !== null && event.goingCount >= event.capacity && event.myRsvpStatus !== RsvpStatus.Going && !isWaitlisted;
+  const canReview = isPast && !isOwner && event.myRsvpStatus === RsvpStatus.Going;
   const hasLocation = event.latitude !== null && event.longitude !== null;
   const mapsUrl = hasLocation
     ? `https://www.google.com/maps/search/?api=1&query=${event.latitude},${event.longitude}`
@@ -273,6 +286,16 @@ export function EventDetailPage() {
                 <EventMap latitude={event.latitude!} longitude={event.longitude!} />
               </Box>
             )}
+
+            {(isPast || event.reviewCount > 0) && (
+              <ReviewsSection
+                eventId={event.id}
+                userId={user?.id ?? null}
+                canReview={canReview}
+                averageRating={event.averageRating}
+                reviewCount={event.reviewCount}
+              />
+            )}
           </Stack>
         </Grid>
 
@@ -333,6 +356,14 @@ export function EventDetailPage() {
                         </Typography>
                       </Box>
                     )}
+                    {event.waitlistCount > 0 && (
+                      <Box>
+                        <Typography variant="h5">{event.waitlistCount}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {t('event.onWaitlist')}
+                        </Typography>
+                      </Box>
+                    )}
                   </Stack>
                   {event.capacity !== null && (
                     <LinearProgress
@@ -365,12 +396,14 @@ export function EventDetailPage() {
                         fullWidth
                         size="small"
                         color="primary"
-                        value={event.myRsvpStatus}
+                        // Being on the waitlist shows as a selected first button; clicking it again leaves the list.
+                        value={isWaitlisted ? RsvpStatus.Going : event.myRsvpStatus}
                         onChange={onRsvpChange}
                         disabled={rsvp.isPending}
                       >
-                        <ToggleButton value={RsvpStatus.Going} disabled={isFull}>
-                          <CheckCircleIcon fontSize="small" sx={{ mr: 0.5 }} /> {t('event.rsvp.going')}
+                        <ToggleButton value={RsvpStatus.Going}>
+                          <CheckCircleIcon fontSize="small" sx={{ mr: 0.5 }} />{' '}
+                          {isFull || isWaitlisted ? t('event.rsvp.joinWaitlist') : t('event.rsvp.going')}
                         </ToggleButton>
                         <ToggleButton value={RsvpStatus.Interested}>
                           <StarIcon fontSize="small" sx={{ mr: 0.5 }} /> {t('event.rsvp.interested')}
@@ -380,9 +413,14 @@ export function EventDetailPage() {
                         </ToggleButton>
                       </ToggleButtonGroup>
                       {isFull && (
-                        <Typography variant="caption" color="error">
-                          {t('event.full')}
+                        <Typography variant="caption" color="warning.main">
+                          {t('event.fullWaitlist')}
                         </Typography>
+                      )}
+                      {isWaitlisted && (
+                        <Alert severity="info" sx={{ py: 0 }}>
+                          {t('event.waitlistInfo', { position: event.myWaitlistPosition ?? '?' })}
+                        </Alert>
                       )}
                       {event.myRsvpStatus !== null && (
                         <Typography variant="caption" color="text.secondary">
@@ -416,6 +454,8 @@ export function EventDetailPage() {
                 </CardContent>
               </Card>
             )}
+
+            {isOwner && !event.externalSource && <AttendeesCard eventId={event.id} />}
 
             {isOwner && (
               <Stack direction="row" spacing={1}>

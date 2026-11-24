@@ -20,6 +20,8 @@ export const RsvpStatus = {
   Interested: 0,
   Going: 1,
   NotGoing: 2,
+  /** Asked for Going while the event was full; set by the server, never sent by the client. */
+  Waitlisted: 3,
 } as const;
 export type RsvpStatus = (typeof RsvpStatus)[keyof typeof RsvpStatus];
 
@@ -72,6 +74,14 @@ export interface EventSummary {
   price: number | null;
   goingCount: number;
   externalSource: string | null;
+  latitude: number | null;
+  longitude: number | null;
+}
+
+export interface Recommendations {
+  items: EventSummary[];
+  /** Categories the picks are based on, most liked first. Empty = no history yet, popular events instead. */
+  basedOn: EventCategory[];
 }
 
 export interface EventDetail {
@@ -92,10 +102,42 @@ export interface EventDetail {
   organizerName: string | null;
   goingCount: number;
   interestedCount: number;
+  waitlistCount: number;
   myRsvpStatus: RsvpStatus | null;
+  /** 1-based place in the waitlist when myRsvpStatus is Waitlisted. */
+  myWaitlistPosition: number | null;
   isFavorite: boolean;
+  averageRating: number | null;
+  reviewCount: number;
   externalSource: string | null;
   externalUrl: string | null;
+}
+
+export interface RsvpResponse {
+  status: RsvpStatus;
+  waitlistPosition: number | null;
+}
+
+export interface Attendee {
+  userId: string;
+  displayName: string;
+  status: RsvpStatus;
+  respondedAtUtc: string;
+}
+
+export interface Review {
+  id: string;
+  userId: string;
+  userDisplayName: string;
+  rating: number;
+  comment: string;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+}
+
+export interface ReviewRequest {
+  rating: number;
+  comment: string | null;
 }
 
 export interface EventRequest {

@@ -12,4 +12,5 @@ public class ApplicationUser : IdentityUser
     public ICollection<Event> OrganizedEvents { get; set; } = new List<Event>();
     public ICollection<EventAttendee> Rsvps { get; set; } = new List<EventAttendee>();
     public ICollection<Favorite> Favorites { get; set; } = new List<Favorite>();
+    public ICollection<Review> Reviews { get; set; } = new List<Review>();
 }

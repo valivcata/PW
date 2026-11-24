@@ -27,4 +27,5 @@ public class Event
 
     public ICollection<EventAttendee> Attendees { get; set; } = new List<EventAttendee>();
     public ICollection<Favorite> FavoritedBy { get; set; } = new List<Favorite>();
+    public ICollection<Review> Reviews { get; set; } = new List<Review>();
 }
